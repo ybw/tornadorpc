@@ -27,6 +27,8 @@ import tornado.ioloop
 import tornado.httpserver
 import types
 import traceback
+import logging
+import inspect
 from tornadorpc.utils import getcallargs
 
 # Configuration element
@@ -120,6 +122,11 @@ class BaseRPCParser(object):
         try:
             for attr_name in attr_tree:
                 method = self.check_method(attr_name, method)
+                if inspect.isclass(method):
+                    method = method(self.handler.application,
+                                    self.handler.request)
+                    method._results = self.handler._results
+                    method._transforms = self.handler._transforms
         except AttributeError:
             return self.handler.result(self.faults.method_not_found())
         if not callable(method):
@@ -150,7 +157,6 @@ class BaseRPCParser(object):
         except Exception:
             self.traceback(method_name, params)
             return self.handler.result(self.faults.internal_error())
-        
         if 'async' in dir(method) and method.async:
             # Asynchronous response -- the method should have called
             # self.result(RESULT_VALUE)
